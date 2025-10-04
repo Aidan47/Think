@@ -31,11 +31,9 @@ def eval(input, output):
             stderr=subprocess.DEVNULL
         )
 
-
         return result.returncode != 0
 
-    finally:
-        # Clean up the temporary file.
+    finally:    # remove temp file
         if os.path.exists(filename):
             os.remove(filename)
 
@@ -64,10 +62,11 @@ for theorem in minif2f_test[:]['formal_statement']:
     ]
     input = tokenizer.apply_chat_template(chat, tokenize=True, add_generation_prompt=True, return_tensors="pt").to(model.device)
     output = model.generate(input, max_new_tokens=8192)
+    proof = tokenizer.decode(output[0], skip_special_tokens=True)
     
-    # get accuracy of output
-    correct += eval(input, output)
+    # get validity of proof
+    correct += eval(theorem, proof)
     print(f"correct: {correct}")
-    print(time.time() - start)    
+    print(time.time() - start)
 
 print(f"{correct / len(minif2f_test)}")
