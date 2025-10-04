@@ -1,0 +1,17 @@
+# requirements.txt
+# Intentionally NOT installing torch here—use the PyTorch that ships with the AWS DLAMI.
+
+# Core numerical
+numpy
+
+# Hugging Face ecosystem
+transformers
+datasets
+accelerate
+huggingface_hub
+safetensors
+tqdm
+
+# Experiment tracking
+wandb
+pyyaml
