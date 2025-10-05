@@ -2,6 +2,7 @@ import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import os
 import subprocess
+import re
 import time
 from datasets import load_dataset
 
@@ -17,21 +18,43 @@ def load_model():
     return model, tokenizer
 
 
-def eval(input, output):
+def clean(input, output):
+    # input: get headers before theorem
+    theorem_start_index = input.find("theorem ")
+
+    if theorem_start_index != -1:
+        preamble = input[:theorem_start_index]
+    else:
+        preamble = input
+    
+    preamble.strip()
+
+    # output: theorem and proof statements
+    pattern = r"### Complete Lean 4 Proof.*?```lean4\s*\n(.*?)\n\s*```"
+    match = re.search(pattern, output, re.DOTALL)
+    if match:
+        # group(1) contains the captured proof code.
+        # .strip() removes any leading/trailing whitespace.
+        return preamble + match.group(1).strip()
+    else:
+        print(f"output: {output}")
+        # error: no proof
+        return None
+
+
+# unfinished (incorrect file testing)
+def eval(proof):
     filename = "temp.lean"
-    proof = input + output
 
     try:
         with open(filename, "w") as f:
             f.write(proof)
 
-        result = subprocess.run(
-            ["lean", filename],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
-        )
+        result = subprocess.run(["lean", "--run", "temp.lean"], capture_output=True, text=True)
+        print(type(result))
+        print(result)
 
-        return result.returncode != 0
+        return result.returncode == 0
 
     finally:    # remove temp file
         if os.path.exists(filename):
@@ -55,18 +78,24 @@ prompt = """
     """.strip()
 
 correct = 0
-for theorem in minif2f_test[:]['formal_statement']:
+for i, theorem in enumerate(minif2f_test[:]['formal_statement']):
+    print(f"Theorem {i}:")
     start = time.time()
     chat = [
         {"role": "user", "content": prompt.format(theorem)}
     ]
     input = tokenizer.apply_chat_template(chat, tokenize=True, add_generation_prompt=True, return_tensors="pt").to(model.device)
     output = model.generate(input, max_new_tokens=8192)
-    proof = tokenizer.decode(output[0], skip_special_tokens=True)
+    output = tokenizer.decode(output[0], skip_special_tokens=True)
+    proof = clean(theorem, output)
+    print(f"solve time: {(time.time() - start):.4f}")
     
     # get validity of proof
-    correct += eval(theorem, proof)
+    start = time.time()
+    correct += eval(proof)
+    print(f"verify time: {(time.time() - start):.4f}")
     print(f"correct: {correct}")
-    print(time.time() - start)
+    print()
+    
 
 print(f"{correct / len(minif2f_test)}")
