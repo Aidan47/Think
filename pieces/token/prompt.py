@@ -1,11 +1,11 @@
-import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM
 import os
-import subprocess
 import re
+import subprocess
 import time
-from datasets import load_dataset
 
+import torch
+from datasets import load_dataset
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
 def load_model():
@@ -26,8 +26,8 @@ def clean(input, output):
         preamble = input[:theorem_start_index]
     else:
         preamble = input
-    
-    preamble.strip()
+
+    preamble = preamble.strip()
 
     # output: theorem and proof statements
     pattern = r"### Complete Lean 4 Proof.*?```lean4\s*\n(.*?)\n\s*```"
@@ -61,7 +61,6 @@ def eval(proof):
             os.remove(filename)
 
 
-
 torch.manual_seed(30)
 model, tokenizer = load_model()
 minif2f_test = load_dataset("AI-MO/minif2f_test", split="train")
@@ -85,17 +84,17 @@ for i, theorem in enumerate(minif2f_test[:]['formal_statement']):
         {"role": "user", "content": prompt.format(theorem)}
     ]
     input = tokenizer.apply_chat_template(chat, tokenize=True, add_generation_prompt=True, return_tensors="pt").to(model.device)
-    output = model.generate(input, max_new_tokens=8192)
+    output = model.generate(input, max_new_tokens=4096)
     output = tokenizer.decode(output[0], skip_special_tokens=True)
     proof = clean(theorem, output)
     print(f"solve time: {(time.time() - start):.4f}")
-    
+
     # get validity of proof
     start = time.time()
     correct += eval(proof)
     print(f"verify time: {(time.time() - start):.4f}")
     print(f"correct: {correct}")
     print()
-    
+
 
 print(f"{correct / len(minif2f_test)}")
