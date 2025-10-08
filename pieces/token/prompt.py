@@ -14,7 +14,7 @@ def load_model():
     print(f"Using device: {device}")
 
     tokenizer = AutoTokenizer.from_pretrained(model_id)
-    model = AutoModelForCausalLM.from_pretrained(model_id, device_map="auto", torch_dtype=torch.bfloat16, trust_remote_code=True)
+    model = AutoModelForCausalLM.from_pretrained(model_id, device_map="auto", dtype=torch.bfloat16, trust_remote_code=True)
     return model, tokenizer
 
 
@@ -45,27 +45,31 @@ def clean(input, output):
 
 
 # unfinished (incorrect file testing)
-def eval(proof):
+def verify(proof):
+    project_dir = os.path.join(os.getcwd(), "lean-project")
     filename = "temp.lean"
+    file_path = os.path.join(project_dir, filename)
 
     try:
-        with open(filename, "w", encoding="utf-8") as f:
+        with open(file_path, "w") as f:
             f.write(proof)
 
         result = subprocess.run(
-            ["lean", filename],
+            ["lake", "-d", project_dir, "env", "lean", file_path],
+            # cwd=project_dir,    # lean project directory
             capture_output=True,
             text=True,
-            encoding="utf-8"
         )
+        print(proof)
         print(type(result))
         print(result)
+        
 
         return result.returncode == 0
 
     finally:    # remove temp file
-        if os.path.exists(filename):
-            os.remove(filename)
+        if os.path.exists(file_path):
+            os.remove(file_path)
 
 
 torch.manual_seed(30)
@@ -98,7 +102,7 @@ for i, theorem in enumerate(minif2f_test[:]['formal_statement']): # type: ignore
 
     # get validity of proof
     start = time.time()
-    correct += eval(proof) if proof else 0
+    correct += verify(proof) if proof else 0
     print(f"verify time: {(time.time() - start):.4f}")
     print(f"correct: {correct}")
     print()
