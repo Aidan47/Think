@@ -35,10 +35,12 @@ def clean(input, output):
     if match:
         # group(1) contains the captured proof code.
         # .strip() removes any leading/trailing whitespace.
-        return preamble + match.group(1).strip()
+        proof_code = match.group(1).strip()
+        return f"{preamble}\n\n{proof_code}"
     else:
-        print(f"output: {output}")
         # error: no proof
+        print("Error: Could not find a valid Lean 4 code block in the model's output.")
+        print(f"output: {output}")
         return None
 
 
@@ -47,10 +49,15 @@ def eval(proof):
     filename = "temp.lean"
 
     try:
-        with open(filename, "w") as f:
+        with open(filename, "w", encoding="utf-8") as f:
             f.write(proof)
 
-        result = subprocess.run(["lean", "--run", "temp.lean"], capture_output=True, text=True)
+        result = subprocess.run(
+            ["lean", filename],
+            capture_output=True,
+            text=True,
+            encoding="utf-8"
+        )
         print(type(result))
         print(result)
 
@@ -77,7 +84,7 @@ prompt = """
     """.strip()
 
 correct = 0
-for i, theorem in enumerate(minif2f_test[:]['formal_statement']):
+for i, theorem in enumerate(minif2f_test[:]['formal_statement']): # type: ignore
     print(f"Theorem {i}:")
     start = time.time()
     chat = [
@@ -91,7 +98,7 @@ for i, theorem in enumerate(minif2f_test[:]['formal_statement']):
 
     # get validity of proof
     start = time.time()
-    correct += eval(proof)
+    correct += eval(proof) if proof else 0
     print(f"verify time: {(time.time() - start):.4f}")
     print(f"correct: {correct}")
     print()
