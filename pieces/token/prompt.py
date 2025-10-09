@@ -48,15 +48,15 @@ def clean(input, output):
 def verify(proof):
     project_dir = os.path.join(os.getcwd(), "lean-project")
     filename = "temp.lean"
-    file_path = os.path.join(project_dir, filename)
+    file_path = os.path.join(project_dir, "LeanProject", filename)
 
     try:
         with open(file_path, "w") as f:
             f.write(proof)
 
         result = subprocess.run(
-            ["lake", "-d", project_dir, "env", "lean", file_path],
-            # cwd=project_dir,    # lean project directory
+            ["lake", "env", "lean", file_path],
+            cwd=project_dir,    # lean project directory
             capture_output=True,
             text=True,
         )
