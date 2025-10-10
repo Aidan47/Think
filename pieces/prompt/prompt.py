@@ -6,6 +6,7 @@ import time
 import torch
 from datasets import load_dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer
+from log import *
 
 
 def load_model():
@@ -86,26 +87,43 @@ prompt = """
     Before producing the Lean 4 code to formally prove the given theorem, provide a detailed proof plan outlining the main proof steps and strategies.
     The plan should highlight key ideas, intermediate lemmas, and proof structures that will guide the construction of the final formal proof.
     """.strip()
+    
 
-correct = 0
-for i, theorem in enumerate(minif2f_test[:]['formal_statement']): # type: ignore
-    print(f"Theorem {i}:")
-    start = time.time()
-    chat = [
-        {"role": "user", "content": prompt.format(theorem)}
-    ]
-    input = tokenizer.apply_chat_template(chat, tokenize=True, add_generation_prompt=True, return_tensors="pt").to(model.device)
-    output = model.generate(input, max_new_tokens=4096)
-    output = tokenizer.decode(output[0], skip_special_tokens=True)
-    proof = clean(theorem, output)
-    print(f"solve time: {(time.time() - start):.4f}")
+fieldnames = ['index', 'correct', 'number_of_tests', 'tokens_produced', 'solve_time', 'verify_time']
+    
+with TaskLogger('log.csv', fieldnames) as logger:
+    ds_size = len(minif2f_test) # size of dataset
+    logger.set_total_tasks(ds_size)
+    progress = ProgressBar(total=ds_size, description="Progress")
+    
+    for i, theorem in enumerate(minif2f_test[:]['formal_statement']):
+        start = time.time()
+        # generate proof
+        chat = [
+            {"role": "user", "content": prompt.format(theorem)}
+        ]
+        input = tokenizer.apply_chat_template(chat, tokenize=True, add_generation_prompt=True, return_tensors="pt").to(model.device)
+        output = model.generate(input, max_new_tokens=4096)
+        output = tokenizer.decode(output[0], skip_special_tokens=True)
+        proof = clean(theorem, output)
+        solve_time = time.time() - start
 
-    # get validity of proof
-    start = time.time()
-    correct += verify(proof) if proof else 0
-    print(f"verify time: {(time.time() - start):.4f}")
-    print(f"correct: {correct}")
-    print()
-
-
-print(f"{correct / len(minif2f_test)}")
+        # get validity of proof
+        start = time.time()
+        correct = bool(verify(proof) if proof else 0)
+        verify_time = time.time() - start
+        
+        # log info in csv
+        info = {
+            'index': i,
+            'correctness': correct,
+            'number_of_tests': 0,
+            'tokens_produced': int,
+            'solve_time': solve_time,
+            'verify_time': verify_time
+        }
+        logger.log_task(info)
+        
+        # update progress bar
+        progress.update()
+    progress.finish()
