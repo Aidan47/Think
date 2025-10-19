@@ -20,7 +20,7 @@ def load_model():
 
 
 def get_prompt(x):
-    if x is "OG":
+    if x == "OG":
         return """
             Complete the following Lean 4 code:
 
@@ -32,7 +32,7 @@ def get_prompt(x):
             The plan should highlight key ideas, intermediate lemmas, and proof structures that will guide the construction of the final formal proof.
             """.strip()
     # modified prompt
-    elif x is "PE":
+    elif x == "PE":
         return """
             Complete the following Lean 4 code:
 
@@ -99,7 +99,7 @@ def verify(proof):
 def extract_test(output):
     i = len(output)
     while i > 7:
-        if output[i - 7 : i] is "[TEST]":
+        if output[i - 7 : i] == "[TEST]":
             break
         i -= 1
     return output[i:]
@@ -122,7 +122,7 @@ def generate_proof(theorem):
             chat, tokenize=True, add_generation_prompt=True, return_tensors="pt"
         ).to(model.device)
 
-        input_size = len(input)
+        input_size = input.shape[1]
 
         output = model.generate(
             input,
@@ -132,12 +132,12 @@ def generate_proof(theorem):
             early_stopping=True,
         )
 
-        tokens_produced += len(output) - input_size
+        tokens_produced += output.shape[1] - input_size
 
         output = tokenizer.decode(output[0], skip_special_tokens=True)
 
         # if proof is done
-        if "[/TEST]" not in output[-10:-1]:
+        if "[/TEST]" not in output[-10:]:
             break
 
         num_of_tests += 1
@@ -150,7 +150,7 @@ def generate_proof(theorem):
 
     proof = clean(theorem, output)
 
-    return proof
+    return proof, num_of_tests, tokens_produced
 
 
 if __name__ == "__main__":
@@ -167,10 +167,10 @@ if __name__ == "__main__":
         "verify_time",
     ]
 
-    for i in ["OG", "PE"]:
+    for i in ["OG", "PE"][::-1]:
         prompt = get_prompt(i)
 
-        with TaskLogger(f"metrics/{i}-log.csv", fieldnames) as logger:
+        with TaskLogger(f"metrics/{i}-log.csv", fieldnames, overwrite=True) as logger:
             ds_size = len(minif2f_test)  # size of dataset
             logger.set_total_tasks(ds_size)
             progress = ProgressBar(total=ds_size, description=f"Progress ({i})")
@@ -183,13 +183,13 @@ if __name__ == "__main__":
 
                 # get validity of proof
                 start = time.time()
-                correct = bool(verify(proof).returncode == 0 if proof else 0)
+                correct = verify(proof).returncode == 0 if proof else False
                 verify_time = time.time() - start
 
                 # log info in csv
                 info = {
                     "index": i,
-                    "correctness": correct,
+                    "correct": correct,
                     "number_of_tests": num_of_tests,
                     "tokens_produced": tokens_produced,
                     "solve_time": solve_time,
