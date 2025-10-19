@@ -11,7 +11,7 @@ class TaskLogger:
     while providing a progress tracking display.
     """
     
-    def __init__(self, csv_file_path: str, fieldnames: Optional[List[str]] = None):
+    def __init__(self, csv_file_path: str, fieldnames: Optional[List[str]] = None, overwrite: bool = False):
         """
         Initialize the TaskLogger.
         
@@ -21,6 +21,7 @@ class TaskLogger:
         """
         self.csv_file_path = csv_file_path
         self.fieldnames = fieldnames
+        self.overwrite = overwrite
         self.completed_tasks = 0
         self.total_tasks = 0
         self._csv_file = None
@@ -28,6 +29,9 @@ class TaskLogger:
         
         # Create directory if it doesn't exist
         os.makedirs(os.path.dirname(csv_file_path) or ".", exist_ok=True)
+        
+        if self.overwrite and os.path.exists(self.csv_file_path):
+            os.remove(self.csv_file_path)
         
     def __enter__(self):
         """Context manager entry."""
@@ -76,9 +80,6 @@ class TaskLogger:
         if self._csv_writer is None:
             self.start_logging()
         
-        # Add timestamp if not present
-        if 'timestamp' not in data:
-            data['timestamp'] = datetime.now().isoformat()
         
         # Set fieldnames from first data if not already set
         if self.fieldnames is None:
