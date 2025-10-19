@@ -42,6 +42,8 @@ def get_prompt(x):
 
             Before producing the Lean 4 code to formally prove the given theorem, provide a detailed proof plan outlining the main proof steps and strategies.
             The plan should highlight key ideas, intermediate lemmas, and proof structures that will guide the construction of the final formal proof.
+            You can test ideas by writing Lean 4 code between [TEST] and [/TEST]; it will be compiled and the compiler’s output will be returned in this conversation.
+            Use this capability during your reasoning to validate your ideas and mitigate illogical arguments.
             """.strip()
 
 
@@ -167,7 +169,7 @@ if __name__ == "__main__":
         "verify_time",
     ]
 
-    for i in ["OG", "PE"][::-1]:
+    for i in ["OG", "PE"]:
         prompt = get_prompt(i)
 
         with TaskLogger(f"metrics/{i}-log.csv", fieldnames, overwrite=True) as logger:
